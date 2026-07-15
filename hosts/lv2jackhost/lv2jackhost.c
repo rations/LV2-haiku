@@ -378,7 +378,16 @@ typedef struct {
     jack_client_t *client;
     jack_port_t *jin[2], *jout[2];
     volatile int block_too_big; /* flagged from RT if nframes > max_block */
+    volatile unsigned n_xruns;  /* incremented from JACK's xrun callback */
 } Host;
+
+/* JACK xrun callback: count only — never log from a JACK callback thread. */
+static int xrun_cb(void *arg)
+{
+    Host *h = (Host *)arg;
+    h->n_xruns++;
+    return 0;
+}
 
 /* Re-arm this instance's atom ports before run(): input ports become an empty
    but valid LV2_Atom_Sequence; output ports advertise their capacity as a
@@ -917,6 +926,9 @@ int main(int argc, char **argv)
         lilv_world_free(h.world);
         return 1;
     }
+    if (jack_set_xrun_callback(h.client, xrun_cb, &h) != 0) {
+        fprintf(stderr, "warning: jack_set_xrun_callback failed; xruns not counted\n");
+    }
     if (jack_activate(h.client) != 0) {
         fprintf(stderr, "error: jack_activate failed\n");
         host_destroy(&h);
@@ -939,6 +951,7 @@ int main(int argc, char **argv)
 
     jack_deactivate(h.client);
     jack_client_close(h.client);
+    printf("xruns while running: %u\n", h.n_xruns);
     host_destroy(&h);
     lilv_world_free(h.world);
     return 0;
