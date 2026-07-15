@@ -45,15 +45,13 @@
 #if defined(__SSE__) || defined(__x86_64__)
 #include <pmmintrin.h>
 #include <xmmintrin.h>
-static inline void
-rt_set_denormal_mode(void)
+static inline void rt_set_denormal_mode(void)
 {
     _MM_SET_FLUSH_ZERO_MODE(_MM_FLUSH_ZERO_ON);
     _MM_SET_DENORMALS_ZERO_MODE(_MM_DENORMALS_ZERO_ON);
 }
 #else
-static inline void
-rt_set_denormal_mode(void)
+static inline void rt_set_denormal_mode(void)
 {
 }
 #endif
@@ -65,7 +63,7 @@ rt_set_denormal_mode(void)
 /* ---- URID map/unmap (thread-safe; growth only on the non-RT map path) ---- */
 
 typedef struct {
-    char **uris;    /* index = id - 1 */
+    char **uris; /* index = id - 1 */
     uint32_t n;
     uint32_t cap;
     pthread_mutex_t lock;
@@ -73,8 +71,7 @@ typedef struct {
 
 static UridTable urids = {NULL, 0, 0, PTHREAD_MUTEX_INITIALIZER};
 
-static LV2_URID
-urid_map_cb(LV2_URID_Map_Handle handle, const char *uri)
+static LV2_URID urid_map_cb(LV2_URID_Map_Handle handle, const char *uri)
 {
     (void)handle;
     if (!uri || !*uri) {
@@ -108,8 +105,7 @@ urid_map_cb(LV2_URID_Map_Handle handle, const char *uri)
     return id;
 }
 
-static const char *
-urid_unmap_cb(LV2_URID_Unmap_Handle handle, LV2_URID urid)
+static const char *urid_unmap_cb(LV2_URID_Unmap_Handle handle, LV2_URID urid)
 {
     (void)handle;
     const char *s = NULL;
@@ -130,16 +126,14 @@ static LV2_Feature feat_powof2 = {LV2_BUF_SIZE__powerOf2BlockLength, NULL};
 
 /* ---- Log feature (never called from our own RT path) ---- */
 
-static int
-log_vprintf_cb(LV2_Log_Handle handle, LV2_URID type, const char *fmt, va_list ap)
+static int log_vprintf_cb(LV2_Log_Handle handle, LV2_URID type, const char *fmt, va_list ap)
 {
     (void)handle;
     (void)type;
     return vfprintf(stderr, fmt, ap);
 }
 
-static int
-log_printf_cb(LV2_Log_Handle handle, LV2_URID type, const char *fmt, ...)
+static int log_printf_cb(LV2_Log_Handle handle, LV2_URID type, const char *fmt, ...)
 {
     va_list ap;
     va_start(ap, fmt);
@@ -168,8 +162,7 @@ typedef struct {
     LV2_Feature feature;
 } Worker;
 
-static LV2_Worker_Status
-worker_write_packet(ZixRing *target, uint32_t size, const void *data)
+static LV2_Worker_Status worker_write_packet(ZixRing *target, uint32_t size, const void *data)
 {
     ZixRingTransaction tx = zix_ring_begin_write(target);
     if (zix_ring_amend_write(target, &tx, &size, sizeof(size)) ||
@@ -180,15 +173,14 @@ worker_write_packet(ZixRing *target, uint32_t size, const void *data)
     return LV2_WORKER_SUCCESS;
 }
 
-static LV2_Worker_Status
-worker_respond_cb(LV2_Worker_Respond_Handle handle, uint32_t size, const void *data)
+static LV2_Worker_Status worker_respond_cb(LV2_Worker_Respond_Handle handle, uint32_t size,
+                                           const void *data)
 {
     Worker *w = (Worker *)handle;
     return worker_write_packet(w->responses, size, data);
 }
 
-static ZixThreadResult
-worker_thread_fn(void *arg)
+static ZixThreadResult worker_thread_fn(void *arg)
 {
     Worker *w = (Worker *)arg;
     char buf[MAX_PACKET];
@@ -214,8 +206,8 @@ worker_thread_fn(void *arg)
 }
 
 /* RT-safe: copy the job into the ring and wake the worker. No malloc/lock. */
-static LV2_Worker_Status
-worker_schedule_cb(LV2_Worker_Schedule_Handle handle, uint32_t size, const void *data)
+static LV2_Worker_Status worker_schedule_cb(LV2_Worker_Schedule_Handle handle, uint32_t size,
+                                            const void *data)
 {
     Worker *w = (Worker *)handle;
     if (!w->requests) {
@@ -229,8 +221,7 @@ worker_schedule_cb(LV2_Worker_Schedule_Handle handle, uint32_t size, const void 
 }
 
 /* Apply pending responses then end_run — called from the RT thread. */
-static void
-worker_apply_responses(Worker *w)
+static void worker_apply_responses(Worker *w)
 {
     if (!w->active || !w->iface) {
         return;
@@ -253,8 +244,7 @@ worker_apply_responses(Worker *w)
     }
 }
 
-static void
-worker_init(Worker *w, LilvInstance *inst)
+static void worker_init(Worker *w, LilvInstance *inst)
 {
     const LV2_Worker_Interface *iface =
         (const LV2_Worker_Interface *)lilv_instance_get_extension_data(inst, LV2_WORKER__interface);
@@ -274,9 +264,18 @@ worker_init(Worker *w, LilvInstance *inst)
         w->active = false;
         return;
     }
-    zix_ring_mlock(w->requests);
-    zix_ring_mlock(w->responses);
-    zix_sem_init(&w->sem, 0);
+    if (zix_ring_mlock(w->requests) != ZIX_STATUS_SUCCESS ||
+        zix_ring_mlock(w->responses) != ZIX_STATUS_SUCCESS) {
+        fprintf(stderr, "warning: failed to lock worker rings in memory\n");
+    }
+    if (zix_sem_init(&w->sem, 0) != ZIX_STATUS_SUCCESS) {
+        zix_ring_free(w->requests);
+        zix_ring_free(w->responses);
+        w->requests = NULL;
+        w->responses = NULL;
+        w->active = false;
+        return;
+    }
     w->quit = 0;
     if (zix_thread_create(&w->thread, 65536, worker_thread_fn, w) != ZIX_STATUS_SUCCESS) {
         zix_sem_destroy(&w->sem);
@@ -290,8 +289,7 @@ worker_init(Worker *w, LilvInstance *inst)
     w->active = true;
 }
 
-static void
-worker_destroy(Worker *w)
+static void worker_destroy(Worker *w)
 {
     if (!w->active) {
         return;
@@ -308,8 +306,7 @@ worker_destroy(Worker *w)
 /* ---- Feature allow-list: a plugin that requires anything else is rejected
    before instantiation rather than crashing at run time. ---- */
 
-static bool
-feature_supported(const char *uri)
+static bool feature_supported(const char *uri)
 {
     static const char *ok[] = {LV2_URID__map,
                                LV2_URID__unmap,
@@ -385,8 +382,7 @@ typedef struct {
 /* Re-arm this instance's atom ports before run(): input ports become an empty
    but valid LV2_Atom_Sequence; output ports advertise their capacity as a
    Chunk. RT-safe: only touches the two header fields. */
-static inline void
-reset_atoms(Host *h, int k)
+static inline void reset_atoms(Host *h, int k)
 {
     for (uint32_t a = 0; a < h->n_atoms; a++) {
         LV2_Atom_Sequence *seq = (LV2_Atom_Sequence *)h->atoms[a].buf[k];
@@ -404,8 +400,7 @@ reset_atoms(Host *h, int k)
 }
 
 /* Run the plugin in place on L/R (reference: the JackDAW LV2 backend). */
-static void
-host_run(Host *h, float *L, float *R, uint32_t n)
+static void host_run(Host *h, float *L, float *R, uint32_t n)
 {
     if (h->n_audio_out == 0) {
         return;
@@ -456,8 +451,7 @@ host_run(Host *h, float *L, float *R, uint32_t n)
     }
 }
 
-static int
-process_cb(jack_nframes_t nframes, void *arg)
+static int process_cb(jack_nframes_t nframes, void *arg)
 {
     Host *h = (Host *)arg;
     rt_set_denormal_mode();
@@ -484,13 +478,13 @@ process_cb(jack_nframes_t nframes, void *arg)
 
 /* ---- Setup ---- */
 
-static bool
-check_required_features(const LilvPlugin *p)
+static bool check_required_features(const LilvPlugin *p)
 {
     bool ok = true;
     LilvNodes *req = lilv_plugin_get_required_features(p);
     if (req) {
-        LILV_FOREACH(nodes, it, req) {
+        LILV_FOREACH(nodes, it, req)
+        {
             const LilvNode *f = lilv_nodes_get(req, it);
             const char *uri = lilv_node_as_uri(f);
             if (!uri || !feature_supported(uri)) {
@@ -504,8 +498,7 @@ check_required_features(const LilvPlugin *p)
     return ok;
 }
 
-static bool
-host_instantiate(Host *h, double sr)
+static bool host_instantiate(Host *h, double sr)
 {
     const LilvPlugin *p = h->plugin;
     LilvNode *n_audio = lilv_new_uri(h->world, LILV_URI_AUDIO_PORT);
@@ -579,8 +572,7 @@ host_instantiate(Host *h, double sr)
                 Param *pr = &h->params[h->n_params++];
                 pr->port_index = i;
                 LilvNode *pn = lilv_port_get_name(p, port);
-                snprintf(pr->name, sizeof(pr->name), "%s",
-                         pn ? lilv_node_as_string(pn) : "param");
+                snprintf(pr->name, sizeof(pr->name), "%s", pn ? lilv_node_as_string(pn) : "param");
                 if (pn) {
                     lilv_node_free(pn);
                 }
@@ -678,8 +670,7 @@ host_instantiate(Host *h, double sr)
                 lilv_instance_connect_port(h->inst[k], i, &h->ctl[i]);
             } else if (lilv_port_is_a(p, port, n_audio)) {
                 lilv_instance_connect_port(
-                    h->inst[k], i,
-                    lilv_port_is_a(p, port, n_input) ? h->dummy_in : h->dummy_out);
+                    h->inst[k], i, lilv_port_is_a(p, port, n_input) ? h->dummy_in : h->dummy_out);
             } else if (lilv_port_is_a(p, port, n_atom)) {
                 void *buf = h->misc;
                 for (uint32_t a = 0; a < h->n_atoms; a++) {
@@ -691,8 +682,7 @@ host_instantiate(Host *h, double sr)
                 lilv_instance_connect_port(h->inst[k], i, buf);
             } else if (lilv_port_is_a(p, port, n_cv)) {
                 lilv_instance_connect_port(
-                    h->inst[k], i,
-                    lilv_port_is_a(p, port, n_input) ? h->dummy_in : h->dummy_out);
+                    h->inst[k], i, lilv_port_is_a(p, port, n_input) ? h->dummy_in : h->dummy_out);
             } else {
                 lilv_instance_connect_port(h->inst[k], i, h->misc);
             }
@@ -718,8 +708,7 @@ done:
     return ok;
 }
 
-static void
-host_destroy(Host *h)
+static void host_destroy(Host *h)
 {
     for (int k = 0; k < h->n_inst; k++) {
         if (h->inst[k]) {
@@ -749,8 +738,7 @@ host_destroy(Host *h)
 
 /* ---- REPL ---- */
 
-static void
-print_params(const Host *h)
+static void print_params(const Host *h)
 {
     printf("%u parameter(s):\n", h->n_params);
     for (uint32_t i = 0; i < h->n_params; i++) {
@@ -773,8 +761,7 @@ print_params(const Host *h)
     }
 }
 
-static void
-repl(Host *h)
+static void repl(Host *h)
 {
     char line[256];
     printf("commands: list | get N | set N VALUE | quit\n");
@@ -817,8 +804,7 @@ repl(Host *h)
 }
 
 /* Best effort: wire our stereo ports to the physical capture/playback. */
-static void
-autoconnect(Host *h)
+static void autoconnect(Host *h)
 {
     const char **play = jack_get_ports(h->client, NULL, JACK_DEFAULT_AUDIO_TYPE,
                                        JackPortIsPhysical | JackPortIsInput);
@@ -838,8 +824,7 @@ autoconnect(Host *h)
     }
 }
 
-int
-main(int argc, char **argv)
+int main(int argc, char **argv)
 {
     if (argc != 2) {
         fprintf(stderr, "usage: lv2jackhost <plugin-uri>\n");
@@ -887,10 +872,8 @@ main(int argc, char **argv)
 
     h.jin[0] = jack_port_register(h.client, "in_l", JACK_DEFAULT_AUDIO_TYPE, JackPortIsInput, 0);
     h.jin[1] = jack_port_register(h.client, "in_r", JACK_DEFAULT_AUDIO_TYPE, JackPortIsInput, 0);
-    h.jout[0] =
-        jack_port_register(h.client, "out_l", JACK_DEFAULT_AUDIO_TYPE, JackPortIsOutput, 0);
-    h.jout[1] =
-        jack_port_register(h.client, "out_r", JACK_DEFAULT_AUDIO_TYPE, JackPortIsOutput, 0);
+    h.jout[0] = jack_port_register(h.client, "out_l", JACK_DEFAULT_AUDIO_TYPE, JackPortIsOutput, 0);
+    h.jout[1] = jack_port_register(h.client, "out_r", JACK_DEFAULT_AUDIO_TYPE, JackPortIsOutput, 0);
     if (!h.jin[0] || !h.jin[1] || !h.jout[0] || !h.jout[1]) {
         fprintf(stderr, "error: jack_port_register failed\n");
         jack_client_close(h.client);
