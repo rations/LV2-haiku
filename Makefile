@@ -39,6 +39,7 @@ MESON_OPTS_lilv = -Dtools=enabled -Dbindings_py=disabled -Dbindings_cpp=disabled
 	-Ddynmanifest=disabled "-Ddefault_lv2_path=$(DEFAULT_LV2_PATH)"
 
 CC ?= gcc
+CXX ?= g++
 WARN = -Wall -Wextra
 UNAME := $(shell uname)
 
@@ -61,7 +62,15 @@ HKAMP_OUT = $(BUILD_DIR)/hkamp.lv2
 
 all: build
 
-build: stack $(BUILD_DIR)/bin/lv2jackhost $(HKAMP_OUT)/hkamp.so
+HKAMP_TTLS = $(HKAMP_OUT)/manifest.ttl $(HKAMP_OUT)/hkamp.ttl
+
+ifeq ($(UNAME),Haiku)
+# The GUI host and plugin UI need the Interface Kit (Haiku only).
+build: stack $(BUILD_DIR)/bin/lv2jackhost $(BUILD_DIR)/bin/lv2guihost \
+	$(HKAMP_OUT)/hkamp.so $(HKAMP_OUT)/hkamp_ui.so $(HKAMP_TTLS)
+else
+build: stack $(BUILD_DIR)/bin/lv2jackhost $(HKAMP_OUT)/hkamp.so $(HKAMP_TTLS)
+endif
 
 # ---- vendored stack (meson, unmodified upstream) --------------------------
 
@@ -84,18 +93,45 @@ $(BUILD_DIR)/.stamp-%:
 
 # ---- our own code (direct rules against the stage) ------------------------
 
-$(BUILD_DIR)/bin/lv2jackhost: hosts/lv2jackhost/lv2jackhost.c $(BUILD_DIR)/.stamp-lilv
+CORE_SRC = hosts/common/lv2host_core.c
+CORE_HDR = hosts/common/lv2host_core.h
+CORE_OBJ = $(BUILD_DIR)/lv2host_core.o
+
+$(CORE_OBJ): $(CORE_SRC) $(CORE_HDR) $(BUILD_DIR)/.stamp-lilv
+	@mkdir -p $(BUILD_DIR)
+	$(CC) -std=c99 $(WARN) -O2 -g -c -o $@ $(CORE_SRC) \
+		`$(PKGCFG) pkg-config --cflags lilv-0 zix-0 lv2` $(JACK_CFLAGS)
+
+$(BUILD_DIR)/bin/lv2jackhost: hosts/lv2jackhost/lv2jackhost.c $(CORE_HDR) $(CORE_OBJ)
 	@mkdir -p $(BUILD_DIR)/bin
-	$(CC) -std=c99 $(WARN) -O2 -g -o $@ $< \
+	$(CC) -std=c99 $(WARN) -O2 -g -o $@ $< $(CORE_OBJ) \
 		`$(PKGCFG) pkg-config --cflags lilv-0 zix-0 lv2` $(JACK_CFLAGS) \
 		`$(PKGCFG) pkg-config --static --libs lilv-0 zix-0` \
 		$(JACK_LIBS) $(HOST_EXTRA_LIBS)
+
+# Haiku only: Interface Kit GUI host (C++ shell over the C core).
+$(BUILD_DIR)/bin/lv2guihost: hosts/lv2guihost/lv2guihost.cpp $(CORE_HDR) $(CORE_OBJ) \
+		ns/ui-haiku.lv2/ui_haiku.h
+	@mkdir -p $(BUILD_DIR)/bin
+	$(CXX) -std=c++17 $(WARN) -O2 -g -o $@ $< $(CORE_OBJ) \
+		`$(PKGCFG) pkg-config --cflags lilv-0 zix-0 lv2` $(JACK_CFLAGS) \
+		`$(PKGCFG) pkg-config --static --libs lilv-0 zix-0` \
+		$(JACK_LIBS) -lbe
 
 $(HKAMP_OUT)/hkamp.so: $(HKAMP_SRC)/hkamp.c $(BUILD_DIR)/.stamp-lv2
 	@mkdir -p $(HKAMP_OUT)
 	$(CC) -std=c99 $(WARN) -O2 -fPIC -shared -o $@ $< \
 		`$(PKGCFG) pkg-config --cflags lv2` -lm
-	cp $(HKAMP_SRC)/manifest.ttl $(HKAMP_SRC)/hkamp.ttl $(HKAMP_OUT)/
+
+$(HKAMP_OUT)/%.ttl: $(HKAMP_SRC)/%.ttl
+	@mkdir -p $(HKAMP_OUT)
+	cp $< $@
+
+# Haiku only: the plugin's native BView UI (second .so in the bundle).
+$(HKAMP_OUT)/hkamp_ui.so: $(HKAMP_SRC)/hkamp_ui.cpp $(BUILD_DIR)/.stamp-lv2
+	@mkdir -p $(HKAMP_OUT)
+	$(CXX) -std=c++17 $(WARN) -O2 -fPIC -shared -o $@ $< \
+		`$(PKGCFG) pkg-config --cflags lv2` -lbe
 
 # ---- install / validate ----------------------------------------------------
 
@@ -104,17 +140,18 @@ deps:
 	pkgman install -y meson ninja pkgconfig
 
 # The LV2 specification bundles must be discoverable on LV2_PATH for lilv to
-# resolve plugin metadata.
+# resolve plugin metadata. ns/ui-haiku.lv2 (the HaikuUI type) installs with
+# them so UIs declaring the type resolve too.
 install-specs: stack
 	mkdir -p $(LV2_INSTALL_DIR)
-	@for b in $(STAGE)/lib/lv2/*.lv2; do \
+	@for b in $(STAGE)/lib/lv2/*.lv2 ns/ui-haiku.lv2; do \
 		[ -d "$$b" ] || continue; \
 		echo "install $$b -> $(LV2_INSTALL_DIR)/$$(basename $$b)"; \
 		rm -rf "$(LV2_INSTALL_DIR)/$$(basename $$b)"; \
 		cp -r "$$b" "$(LV2_INSTALL_DIR)/"; \
 	done
 
-install: $(HKAMP_OUT)/hkamp.so
+install: build
 	mkdir -p $(LV2_INSTALL_DIR)
 	rm -rf $(LV2_INSTALL_DIR)/hkamp.lv2
 	cp -r $(HKAMP_OUT) $(LV2_INSTALL_DIR)/hkamp.lv2

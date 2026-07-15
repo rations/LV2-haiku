@@ -2,7 +2,13 @@
 @prefix lv2:   <http://lv2plug.in/ns/lv2core#> .
 @prefix rdf:   <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
 @prefix rdfs:  <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix ui:    <http://lv2plug.in/ns/extensions/ui#> .
+@prefix uihk:  <https://github.com/rations/LV2-haiku/ns/ui-haiku#> .
 @prefix units: <http://lv2plug.in/ns/extensions/units#> .
+
+<https://github.com/rations/LV2-haiku/plugins/hkamp#ui>
+	a uihk:HaikuUI ;
+	ui:binary <hkamp_ui.so> .
 
 <https://github.com/rations/LV2-haiku/plugins/hkamp>
 	a lv2:Plugin ,
@@ -10,6 +16,7 @@
 	doap:name "hkamp Stereo Amplifier" ;
 	doap:license <http://opensource.org/licenses/isc> ;
 	lv2:optionalFeature lv2:hardRTCapable ;
+	ui:ui <https://github.com/rations/LV2-haiku/plugins/hkamp#ui> ;
 	lv2:port [
 		a lv2:InputPort ,
 			lv2:ControlPort ;

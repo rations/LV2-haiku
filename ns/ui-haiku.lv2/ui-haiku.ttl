@@ -1,0 +1,17 @@
+@prefix owl: <http://www.w3.org/2002/07/owl#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix ui: <http://lv2plug.in/ns/extensions/ui#> .
+@prefix uihk: <https://github.com/rations/LV2-haiku/ns/ui-haiku#> .
+
+<https://github.com/rations/LV2-haiku/ns/ui-haiku>
+	a owl:Ontology ;
+	rdfs:label "LV2 Haiku UI" ;
+	rdfs:comment "A native Haiku (Interface Kit) UI type for LV2 plugins." ;
+	owl:imports <http://lv2plug.in/ns/extensions/ui> .
+
+uihk:HaikuUI
+	a rdfs:Class ,
+		owl:Class ;
+	rdfs:subClassOf ui:UI ;
+	rdfs:label "Haiku UI" ;
+	rdfs:comment "A UI where the widget is a pointer to a BView." .
