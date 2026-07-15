@@ -96,7 +96,7 @@ int main(void) {
 
   has_sched_setscheduler = cc.compiles(
     sched_setscheduler_code,
-    args: platform_defines,
+    args: platform_defines + ['-Werror=implicit-function-declaration'],
     name: 'sched_setscheduler',
   )
 
