@@ -14,6 +14,9 @@
 #  include <windows.h>
 #elif USE_MLOCK
 #  include <sys/mman.h>
+#  ifdef __HAIKU__
+#    include <unistd.h>
+#  endif
 #endif
 
 /*
@@ -119,8 +122,19 @@ zix_ring_mlock(ZixRing* const ring)
            : ZIX_STATUS_ERROR;
 
 #elif USE_MLOCK
+#  ifdef __HAIKU__
+  // Haiku requires page-aligned addresses, so lock the whole pages
+  const uintptr_t mask     = ~((uintptr_t)sysconf(_SC_PAGESIZE) - 1U);
+  const uintptr_t ring_ptr = (uintptr_t)ring;
+  const uintptr_t buf_ptr  = (uintptr_t)ring->buf;
+  return zix_errno_status_if(
+    mlock((void*)(ring_ptr & mask),
+          (ring_ptr - (ring_ptr & mask)) + sizeof(ZixRing)) +
+    mlock((void*)(buf_ptr & mask), (buf_ptr - (buf_ptr & mask)) + ring->size));
+#  else
   return zix_errno_status_if(mlock(ring, sizeof(ZixRing)) +
                              mlock(ring->buf, ring->size));
+#  endif
 
 #else
   (void)ring;
