@@ -1,0 +1,32 @@
+name			lv2_haiku
+version			0.1.0-1
+architecture	x86_64
+summary			"LV2 hosting stack, JACK LV2 host, and tools (Haiku)"
+description		"The LV2 plugin hosting stack (lilv, serd, sord, sratom, zix and the
+LV2 specification bundles) built natively for Haiku, plus a headless JACK LV2 host
+(lv2jackhost) with a parameter REPL, the lilv tools (lv2ls, lv2info, lv2apply), and the
+hkamp example plugin. Handy for trying LV2 plug-ins against JACK without a DAW. The
+libraries are linked statically and are a build-time dependency of JackDAW."
+packager		"rations <ehqcar@proton.me>"
+vendor			"rations"
+copyrights {
+	"2011-2026 David Robillard"
+	"2026 rations"
+}
+licenses {
+	"ISC"
+}
+provides {
+	lv2_haiku = 0.1.0
+	cmd:lv2jackhost = 0.1.0
+	cmd:lv2ls = 0.28.0
+	cmd:lv2info = 0.28.0
+	cmd:lv2apply = 0.28.0
+}
+requires {
+	haiku
+	jack
+}
+urls {
+	"https://github.com/rations/LV2-haiku"
+}

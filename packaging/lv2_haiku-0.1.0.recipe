@@ -1,0 +1,54 @@
+# HaikuPorts recipe for LV2-haiku (LV2 hosting stack + JACK LV2 host + tools).
+#
+# NOT YET VALIDATED with haikuporter — verify with `haikuporter -c lv2_haiku` and pin
+# SOURCE_URI to a tag/commit. Note the tree vendors the drobilla LV2 stack (ISC/0BSD).
+SUMMARY="LV2 hosting stack, JACK LV2 host, and tools (Haiku)"
+DESCRIPTION="The LV2 plugin hosting stack (lilv, serd, sord, sratom, zix and the LV2 \
+specification bundles) built natively for Haiku, plus a headless JACK LV2 host \
+(lv2jackhost), the lilv tools (lv2ls, lv2info, lv2apply), and the hkamp example plugin."
+HOMEPAGE="https://github.com/rations/LV2-haiku"
+COPYRIGHT="2011-2026 David Robillard; 2026 rations"
+LICENSE="ISC"
+REVISION="1"
+SOURCE_URI="git+https://github.com/rations/LV2-haiku#master"
+SOURCE_DIR="LV2-haiku"
+ARCHITECTURES="x86_64"
+
+PROVIDES="
+	lv2_haiku = 0.1.0
+	cmd:lv2jackhost = 0.1.0
+	cmd:lv2ls = 0.28.0
+	cmd:lv2info = 0.28.0
+	cmd:lv2apply = 0.28.0
+	"
+REQUIRES="
+	haiku
+	jack
+	"
+BUILD_REQUIRES="
+	haiku_devel
+	jack
+	devel:libjack
+	cmd:meson
+	cmd:ninja
+	cmd:pkg_config
+	"
+
+BUILD()
+{
+	make
+}
+
+INSTALL()
+{
+	mkdir -p $binDir $addOnsDir/lv2
+	cp build/bin/lv2jackhost $binDir/
+	for tool in lv2ls lv2info lv2apply; do
+		cp build/stage/bin/$tool $binDir/
+	done
+	for b in build/stage/lib/lv2/*.lv2; do
+		[ -d "$b" ] || continue
+		cp -r "$b" $addOnsDir/lv2/
+	done
+	cp -r build/hkamp.lv2 $addOnsDir/lv2/
+}

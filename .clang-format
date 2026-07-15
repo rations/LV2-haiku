@@ -1,0 +1,19 @@
+# Style for code WE author in this repo (hosts/, plugins/, ns/). Matches the sibling
+# jackDAW-haiku project: 4-space indentation, Linux braces (function brace on its own line,
+# control braces attached), no tabs.
+#
+# NEVER run clang-format over the imported upstream trees (lv2stack/) — any Haiku patches
+# inside them match the surrounding drobilla upstream style by hand.
+BasedOnStyle: LLVM
+IndentWidth: 4
+TabWidth: 4
+UseTab: Never
+ColumnLimit: 100
+BreakBeforeBraces: Linux
+PointerAlignment: Right
+AllowShortFunctionsOnASingleLine: None
+AllowShortIfStatementsOnASingleLine: false
+AllowShortLoopsOnASingleLine: false
+SortIncludes: false
+IndentCaseLabels: true
+AccessModifierOffset: -4
