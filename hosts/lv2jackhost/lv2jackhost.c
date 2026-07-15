@@ -31,6 +31,7 @@
 
 #include <math.h>
 #include <pthread.h>
+#include <signal.h>
 #include <stdarg.h>
 #include <stdbool.h>
 #include <stdint.h>
@@ -761,11 +762,23 @@ static void print_params(const Host *h)
     }
 }
 
+/* SIGTERM/SIGINT/SIGHUP request a clean shutdown: the handler only sets a
+   flag; installed without SA_RESTART so the blocking REPL fgets() returns
+   with EINTR and main() runs the normal teardown (jack_client_close() must
+   happen — a killed client leaves the server graph wedged). */
+static volatile sig_atomic_t quit_requested = 0;
+
+static void quit_signal_handler(int sig)
+{
+    (void)sig;
+    quit_requested = 1;
+}
+
 static void repl(Host *h)
 {
     char line[256];
     printf("commands: list | get N | set N VALUE | quit\n");
-    while (fgets(line, sizeof(line), stdin)) {
+    while (!quit_requested && fgets(line, sizeof(line), stdin)) {
         unsigned idx = 0;
         float val = 0.0f;
         if (!strncmp(line, "quit", 4) || !strncmp(line, "exit", 4)) {
@@ -912,6 +925,15 @@ int main(int argc, char **argv)
         return 1;
     }
     autoconnect(&h);
+
+    struct sigaction sa;
+    memset(&sa, 0, sizeof(sa));
+    sa.sa_handler = quit_signal_handler;
+    sigemptyset(&sa.sa_mask);
+    if (sigaction(SIGTERM, &sa, NULL) != 0 || sigaction(SIGINT, &sa, NULL) != 0 ||
+        sigaction(SIGHUP, &sa, NULL) != 0) {
+        fprintf(stderr, "warning: failed to install signal handlers\n");
+    }
 
     repl(&h);
 
