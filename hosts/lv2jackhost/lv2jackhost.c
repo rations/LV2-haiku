@@ -32,6 +32,16 @@ static void print_params(const Lv2Host *h)
     }
 }
 
+static void print_outs(const Lv2Host *h)
+{
+    printf("%u control output(s):\n", h->n_outs);
+    for (uint32_t i = 0; i < h->n_outs; i++) {
+        const Lv2hParam *pr = &h->outs[i];
+        printf("  [%u] %-24s min %-9g max %-9g cur %-9g\n", i, pr->name, pr->min, pr->max,
+               lv2host_get_control(h, pr->port_index));
+    }
+}
+
 /* SIGTERM/SIGINT/SIGHUP request a clean shutdown: the handler only sets a
    flag; installed without SA_RESTART so the blocking REPL fgets() returns
    with EINTR and main() runs the normal teardown (jack_client_close() must
@@ -47,7 +57,7 @@ static void quit_signal_handler(int sig)
 static void repl(Lv2Host *h)
 {
     char line[256];
-    printf("commands: list | get N | set N VALUE | quit\n");
+    printf("commands: list | get N | set N VALUE | out | quit\n");
     while (!quit_requested && fgets(line, sizeof(line), stdin)) {
         unsigned idx = 0;
         float val = 0.0f;
@@ -56,6 +66,8 @@ static void repl(Lv2Host *h)
         }
         if (!strncmp(line, "list", 4)) {
             print_params(h);
+        } else if (!strncmp(line, "out", 3)) {
+            print_outs(h);
         } else if (sscanf(line, "set %u %f", &idx, &val) == 2) {
             if (!lv2host_set_param(h, idx, val)) {
                 printf("no such parameter %u\n", idx);
@@ -77,7 +89,7 @@ static void repl(Lv2Host *h)
             printf("%s = %g\n", h->params[idx].name,
                    lv2host_get_control(h, h->params[idx].port_index));
         } else if (line[0] != '\n' && line[0] != '\0') {
-            printf("commands: list | get N | set N VALUE | quit\n");
+            printf("commands: list | get N | set N VALUE | out | quit\n");
         }
         if (h->block_too_big) {
             printf("warning: JACK buffer size grew past the pre-allocated block; "
@@ -108,6 +120,9 @@ int main(int argc, char **argv)
     printf("audio: %d in, %d out%s; sr %.0f Hz, block %u\n", h.n_audio_in, h.n_audio_out,
            h.dual_mono ? " (dual-mono x2)" : "", h.sample_rate, h.max_block);
     print_params(&h);
+    if (h.n_outs) {
+        print_outs(&h);
+    }
 
     struct sigaction sa;
     memset(&sa, 0, sizeof(sa));

@@ -85,6 +85,13 @@ typedef struct {
     Lv2hParam *params;
     uint32_t n_params;
 
+    /* Control OUTPUT ports (meters / analysis results). They live in the
+       same ctl value store as inputs (the plugin rewrites them from RT each
+       run); snapshot with lv2host_get_control(). Dual-mono runs two
+       instances into the same slot — last writer wins (display-only data). */
+    Lv2hParam *outs;
+    uint32_t n_outs;
+
     Lv2hAtomPort *atoms;
     uint32_t n_atoms;
     LV2_URID urid_seq, urid_chunk;

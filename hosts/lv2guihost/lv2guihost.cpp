@@ -29,6 +29,7 @@
 #include <Window.h>
 
 #include <dlfcn.h>
+#include <math.h>
 #include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -187,11 +188,16 @@ public:
         if (fMod->view) {
             AddChild(fMod->view);
         }
-        fLast = (float *)calloc(fHost->n_params ? fHost->n_params : 1, sizeof(float));
+        const uint32_t total = fHost->n_params + fHost->n_outs;
+        fLast = (float *)calloc(total ? total : 1, sizeof(float));
         if (fLast) {
             for (uint32_t i = 0; i < fHost->n_params; i++) {
                 /* Force one initial port_event per parameter. */
                 fLast[i] = fHost->params[i].def + 1.0f;
+            }
+            for (uint32_t i = 0; i < fHost->n_outs; i++) {
+                /* NAN compares unequal to everything: one initial event. */
+                fLast[fHost->n_params + i] = NAN;
             }
         }
         fRunner = new BMessageRunner(BMessenger(this), new BMessage(kMsgTick), kTickUsec);
@@ -245,6 +251,14 @@ private:
                     fMod->desc->port_event(fMod->handle, port, sizeof(float), 0, &v);
                 }
             }
+            for (uint32_t i = 0; i < fHost->n_outs; i++) {
+                const uint32_t port = fHost->outs[i].port_index;
+                const float v = lv2host_get_control(fHost, port);
+                if (v != fLast[fHost->n_params + i]) {
+                    fLast[fHost->n_params + i] = v;
+                    fMod->desc->port_event(fMod->handle, port, sizeof(float), 0, &v);
+                }
+            }
         }
         if (fMod->idle_iface && fMod->idle_iface->idle) {
             if (fMod->idle_iface->idle(fMod->handle) != 0) {
@@ -272,10 +286,14 @@ public:
 
     virtual void ReadyToRun()
     {
-        fLast = (float *)calloc(fHost->n_params ? fHost->n_params : 1, sizeof(float));
+        const uint32_t total = fHost->n_params + fHost->n_outs;
+        fLast = (float *)calloc(total ? total : 1, sizeof(float));
         if (fLast) {
             for (uint32_t i = 0; i < fHost->n_params; i++) {
                 fLast[i] = fHost->params[i].def + 1.0f;
+            }
+            for (uint32_t i = 0; i < fHost->n_outs; i++) {
+                fLast[fHost->n_params + i] = NAN;
             }
         }
         fRunner = new BMessageRunner(BMessenger(this), new BMessage(kMsgTick), kTickUsec);
@@ -294,6 +312,14 @@ public:
                     const float v = lv2host_get_control(fHost, port);
                     if (v != fLast[i]) {
                         fLast[i] = v;
+                        fMod->desc->port_event(fMod->handle, port, sizeof(float), 0, &v);
+                    }
+                }
+                for (uint32_t i = 0; i < fHost->n_outs; i++) {
+                    const uint32_t port = fHost->outs[i].port_index;
+                    const float v = lv2host_get_control(fHost, port);
+                    if (v != fLast[fHost->n_params + i]) {
+                        fLast[fHost->n_params + i] = v;
                         fMod->desc->port_event(fMod->handle, port, sizeof(float), 0, &v);
                     }
                 }

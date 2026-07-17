@@ -466,6 +466,7 @@ static bool host_instantiate(Lv2Host *h, double sr)
     h->ain = (uint32_t *)calloc(h->n_ports ? h->n_ports : 1, sizeof(uint32_t));
     h->aout = (uint32_t *)calloc(h->n_ports ? h->n_ports : 1, sizeof(uint32_t));
     h->params = (Lv2hParam *)calloc(h->n_ports ? h->n_ports : 1, sizeof(Lv2hParam));
+    h->outs = (Lv2hParam *)calloc(h->n_ports ? h->n_ports : 1, sizeof(Lv2hParam));
     h->atoms = (Lv2hAtomPort *)calloc(h->n_ports ? h->n_ports : 1, sizeof(Lv2hAtomPort));
     h->bufL = (float *)calloc(h->max_block, sizeof(float));
     h->bufR = (float *)calloc(h->max_block, sizeof(float));
@@ -482,9 +483,9 @@ static bool host_instantiate(Lv2Host *h, double sr)
     float *mins = (float *)calloc(h->n_ports ? h->n_ports : 1, sizeof(float));
     float *maxs = (float *)calloc(h->n_ports ? h->n_ports : 1, sizeof(float));
     float *defs = (float *)calloc(h->n_ports ? h->n_ports : 1, sizeof(float));
-    if (!h->ctl || !h->ain || !h->aout || !h->params || !h->atoms || !h->bufL || !h->bufR ||
-        !h->outA || !h->outB || !h->dummy_in || !h->dummy_out || !h->misc || !h->ctl_ring ||
-        !mins || !maxs || !defs) {
+    if (!h->ctl || !h->ain || !h->aout || !h->params || !h->outs || !h->atoms || !h->bufL ||
+        !h->bufR || !h->outA || !h->outB || !h->dummy_in || !h->dummy_out || !h->misc ||
+        !h->ctl_ring || !mins || !maxs || !defs) {
         fprintf(stderr, "error: out of memory\n");
         goto done;
     }
@@ -543,6 +544,17 @@ static bool host_instantiate(Lv2Host *h, double sr)
                     pr->n_scale_points = lilv_scale_points_size(sp);
                     lilv_scale_points_free(sp);
                 }
+            } else if (is_out) {
+                Lv2hParam *pr = &h->outs[h->n_outs++];
+                pr->port_index = i;
+                LilvNode *pn = lilv_port_get_name(p, port);
+                snprintf(pr->name, sizeof(pr->name), "%s", pn ? lilv_node_as_string(pn) : "out");
+                if (pn) {
+                    lilv_node_free(pn);
+                }
+                pr->min = mins[i];
+                pr->max = maxs[i];
+                pr->def = d;
             }
         }
     }
@@ -679,6 +691,7 @@ static void host_destroy(Lv2Host *h)
     h->ctl_ring = NULL;
     free(h->atoms);
     free(h->params);
+    free(h->outs);
     free(h->ctl);
     free(h->ain);
     free(h->aout);
