@@ -17,3 +17,11 @@ build/
 *~
 *.swp
 .DS_Store
+
+# Local tests
+BUILD-PLUGINS.txt
+compile-lv2-plugin.sh
+
+# Built packages: attached to GitHub Releases, never committed.
+packaging/*.hpkg
+packaging/stage/
