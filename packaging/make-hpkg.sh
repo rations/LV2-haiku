@@ -7,7 +7,7 @@ set -e
 
 HERE=$(cd "$(dirname "$0")" && pwd)
 ROOT=$(cd "$HERE/.." && pwd)
-VERSION=0.2.0
+VERSION=0.3.0
 REVISION=1
 STAGE_PKG="$HERE/stage"
 
@@ -17,7 +17,7 @@ cd "$ROOT"
 rm -rf build "$STAGE_PKG"
 make
 
-mkdir -p "$STAGE_PKG/bin" "$STAGE_PKG/add-ons/lv2"
+mkdir -p "$STAGE_PKG/bin" "$STAGE_PKG/add-ons/media/LV2"
 
 cp build/bin/lv2jackhost "$STAGE_PKG/bin/"
 for tool in lv2ls lv2info lv2apply; do
@@ -27,9 +27,9 @@ done
 # LV2 spec bundles (lilv needs them on LV2_PATH) + the example plugin.
 for b in build/stage/lib/lv2/*.lv2; do
     [ -d "$b" ] || continue
-    cp -r "$b" "$STAGE_PKG/add-ons/lv2/"
+    cp -r "$b" "$STAGE_PKG/add-ons/media/LV2/"
 done
-cp -r build/hkamp.lv2 "$STAGE_PKG/add-ons/lv2/"
+cp -r build/hkamp.lv2 "$STAGE_PKG/add-ons/media/LV2/"
 
 cp "$HERE/lv2_haiku.PackageInfo" "$STAGE_PKG/.PackageInfo"
 OUT="$HERE/lv2_haiku-$VERSION-$REVISION-x86_64.hpkg"

@@ -17,16 +17,17 @@ project's own unmodified meson build. On top of that it adds:
 - **`plugins/hkamp.lv2`** — a simple stereo amplifier plugin (with a native BView UI) used
   as the milestone test plugin.
 
-Plugins install to `/boot/home/config/non-packaged/add-ons/lv2/` (user) or
-`/boot/system/non-packaged/add-ons/lv2/` (system); the default `LV2_PATH` covers both plus
-`~/.lv2` and `/boot/system/add-ons/lv2`.
+Plugins install to `/boot/home/config/non-packaged/add-ons/media/LV2/` (user) or
+`/boot/system/non-packaged/add-ons/media/LV2/` (system); the default `LV2_PATH` covers those
+plus `/boot/system/add-ons/media/LV2`. No dot-folders — Haiku organises per-user files under
+the `~/config` hierarchy.
 
 ## Building (on Haiku)
 
 ```sh
 make deps       # pkgman install -y meson ninja pkgconfig
 make            # builds the stack into build/stage + hosts + hkamp.lv2
-make install-specs install   # LV2 spec bundles + hkamp into ~/config/non-packaged/add-ons/lv2
+make install-specs install   # LV2 spec bundles + hkamp into ~/config/non-packaged/add-ons/media/LV2
 make validate   # lv2ls / lv2info smoke checks
 ```
 

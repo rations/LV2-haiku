@@ -1,5 +1,5 @@
 name			lv2_haiku
-version			0.2.0-1
+version			0.3.0-1
 architecture	x86_64
 summary			"LV2 hosting stack, JACK LV2 host, and tools (Haiku)"
 description		"The LV2 plugin hosting stack (lilv, serd, sord, sratom, zix and the
@@ -17,8 +17,8 @@ licenses {
 	"ISC"
 }
 provides {
-	lv2_haiku = 0.2.0
-	cmd:lv2jackhost = 0.2.0
+	lv2_haiku = 0.3.0
+	cmd:lv2jackhost = 0.3.0
 	cmd:lv2ls = 0.28.0
 	cmd:lv2info = 0.28.0
 	cmd:lv2apply = 0.28.0

@@ -11,12 +11,12 @@
 
 BUILD_DIR ?= build
 STAGE := $(abspath $(BUILD_DIR)/stage)
-LV2_INSTALL_DIR ?= $(HOME)/config/non-packaged/add-ons/lv2
+LV2_INSTALL_DIR ?= $(HOME)/config/non-packaged/add-ons/media/LV2
 
 # Haiku-native default plugin search path (mirrors the sibling VST3 port's
 # add-ons convention); set at build time through lilv's default_lv2_path
 # option so no upstream file is patched. LV2_PATH at runtime still overrides.
-DEFAULT_LV2_PATH ?= ~/.lv2:/boot/home/config/non-packaged/add-ons/lv2:/boot/system/non-packaged/add-ons/lv2:/boot/system/add-ons/lv2
+DEFAULT_LV2_PATH ?= /boot/home/config/non-packaged/add-ons/media/LV2:/boot/system/non-packaged/add-ons/media/LV2:/boot/system/add-ons/media/LV2
 
 MESON ?= meson
 NINJA ?= ninja
@@ -28,7 +28,7 @@ MESON_COMMON = --prefix=$(STAGE) --libdir=lib --default-library=static \
 # Per-library options (verified against each lv2stack/<lib>/meson_options.txt).
 # lv2: old_headers installs the <lv2/...> URI-style include layout the hosts
 # use; lv2dir is set explicitly because upstream's Haiku default is the
-# obsolete pre-package-management /boot/common/add-ons/lv2.
+# obsolete pre-package-management /boot/common/add-ons/media/LV2.
 MESON_OPTS_lv2 = -Dtools=disabled -Dold_headers=true -Dbundles=true \
 	-Dlv2dir=$(STAGE)/lib/lv2
 MESON_OPTS_zix = -Dtests_cpp=disabled -Dbenchmarks=disabled

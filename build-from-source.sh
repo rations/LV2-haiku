@@ -21,4 +21,4 @@ done
 cp build/bin/lv2jackhost /boot/system/non-packaged/bin/
 
 echo "done: stack in build/stage, tools in /boot/system/non-packaged/bin,"
-echo "bundles in $HOME/config/non-packaged/add-ons/lv2"
+echo "bundles in $HOME/config/non-packaged/add-ons/media/LV2"
