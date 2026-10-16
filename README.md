@@ -1,5 +1,8 @@
 # LV2-haiku
 
+> **Users:** install the whole stack from the [JackDAW release](https://github.com/rations/jackDAW-haiku/releases)
+> (`sh install.sh`). This repository is the source of the `lv2_haiku` package.
+
 Native port of the **LV2 plugin hosting stack** to **Haiku OS**.
 
 This repo vendors the upstream drobilla suite pristine under `lv2stack/` — the
